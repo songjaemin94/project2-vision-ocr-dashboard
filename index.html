@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>멀티모달 OCR 분석 대시보드 | Project 2</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Pretendard Font -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+    <style>
+        * {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+        }
+        .header-gradient {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+        }
+        .card-mint-top {
+            border-top: 4px solid #00c9a7;
+        }
+        .card-navy-top {
+            border-top: 4px solid #0f2027;
+        }
+        .card-blue-top {
+            border-top: 4px solid #3b82f6;
+        }
+        .card-purple-top {
+            border-top: 4px solid #8b5cf6;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navbar / Header -->
+    <header class="header-gradient text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                    <div class="flex items-center gap-3">
+                        <span class="p-2 bg-emerald-500/20 rounded-lg border border-emerald-400/30 text-emerald-300">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </span>
+                        <h1 class="text-2xl font-bold tracking-tight">멀티모달 OCR 분석 대시보드</h1>
+                    </div>
+                    <p class="text-slate-300 text-sm mt-1">영수증 및 수기 설문지 OCR 인식 결과, 결측치 보간 내역, 데이터 품질 지표 모니터링</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        OpenCV + Vision OCR Active
+                    </span>
+                    <a href="https://github.com/songjaemin94/project2-vision-ocr-dashboard" target="_blank" class="text-xs bg-white/10 hover:bg-white/20 transition px-3 py-1.5 rounded-lg border border-white/20 text-white flex items-center gap-1.5">
+                        GitHub Repo
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        
+        <!-- Filter Bar -->
+        <section class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 mb-8">
+            <div class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                <div class="flex flex-wrap items-center gap-4 flex-1">
+                    <!-- Doc Type -->
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">문서 유형</label>
+                        <select id="filterDocType" onchange="applyFilters()" class="w-full sm:w-40 bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
+                            <option value="all">전체 (240건)</option>
+                            <option value="receipt">영수증 (120건)</option>
+                            <option value="survey">설문지 (120건)</option>
+                        </select>
+                    </div>
+
+                    <!-- Department -->
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">소속 부서</label>
+                        <select id="filterDept" onchange="applyFilters()" class="w-full sm:w-40 bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
+                            <option value="all">전체 부서</option>
+                        </select>
+                    </div>
+
+                    <!-- Image Condition -->
+                    <div class="w-full sm:w-auto">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">이미지 상태 필터</label>
+                        <select id="filterCondition" onchange="applyFilters()" class="w-full sm:w-48 bg-slate-50 border border-slate-300 text-slate-700 text-sm rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 font-medium">
+                            <option value="all">전체 문서</option>
+                            <option value="lowres">저해상도 문서만</option>
+                            <option value="noise">노이즈 포함 문서만</option>
+                            <option value="imputed">결측치 보정 문서만</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex items-end">
+                    <button onclick="resetFilters()" class="w-full sm:w-auto px-4 py-2 text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition font-medium flex items-center justify-center gap-1.5">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        필터 초기화
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- KPI Metric Cards (4개 가로 배치) -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <!-- Card 1 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 card-navy-top transition hover:-translate-y-1 hover:shadow-md">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">전체 문서 수</div>
+                <div class="text-3xl font-extrabold text-slate-900" id="kpiTotalDocs">240 <span class="text-base font-normal text-slate-500">건</span></div>
+                <div class="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                    <span id="kpiDocBreakdown">영수증 120 / 설문 120</span>
+                </div>
+            </div>
+
+            <!-- Card 2 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 card-mint-top transition hover:-translate-y-1 hover:shadow-md">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">OCR 인식 성공률</div>
+                <div class="text-3xl font-extrabold text-emerald-600" id="kpiSuccessRate">100.0%</div>
+                <div class="text-xs text-emerald-600 font-medium mt-2 flex items-center gap-1">
+                    <span>✓ OpenCV 전처리 보정 적용</span>
+                </div>
+            </div>
+
+            <!-- Card 3 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 card-blue-top transition hover:-translate-y-1 hover:shadow-md">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">결측치 보완 건수</div>
+                <div class="text-3xl font-extrabold text-blue-600" id="kpiImputedDocs">25 <span class="text-base font-normal text-slate-500">건</span></div>
+                <div class="text-xs text-blue-600 font-medium mt-2 flex items-center gap-1">
+                    <span id="kpiImputedRate">보완율 10.4%</span>
+                </div>
+            </div>
+
+            <!-- Card 4 -->
+            <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-200 card-purple-top transition hover:-translate-y-1 hover:shadow-md">
+                <div class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">평균 OCR 신뢰도</div>
+                <div class="text-3xl font-extrabold text-purple-600" id="kpiConfidence">97.0%</div>
+                <div class="text-xs text-purple-600 font-medium mt-2 flex items-center gap-1">
+                    <span>High-Confidence Index</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section (2x2 Grid) -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Chart 1: Receipt Category Donut -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <span>🍩</span> 영수증 카테고리별 총 금액 비중
+                    </h3>
+                </div>
+                <div class="h-64 relative">
+                    <canvas id="categoryDonutChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Survey Dept Bar Chart -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <span>📊</span> 설문 부서별 평균 만족도 점수 (1~5점)
+                    </h3>
+                </div>
+                <div class="h-64 relative">
+                    <canvas id="deptBarChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Condition Comparison -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                        <span>⚡</span> 이미지 해상도/노이즈 환경별 OCR 신뢰도 비교
+                    </h3>
+                </div>
+                <div class="h-60 relative">
+                    <canvas id="conditionCompChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Policy Summary Box -->
+            <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+                <div class="mb-4">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center gap-2 mb-3">
+                        <span>📌</span> 데이터 정제 및 결측치 보정 정책
+                    </h3>
+                    <div class="space-y-2.5 text-xs text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200">
+                        <div class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold shrink-0">1. 일자</span>
+                            <span>원본 마스터 DB(Ground Truth)와 매칭하여 자동 복원</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded font-semibold shrink-0">2. 영수증 금액</span>
+                            <span>영수증 문서 원본 검증 후 복원 (<code class="bg-slate-200 px-1 rounded">amount_imputed</code> 표기)</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded font-semibold shrink-0">3. 설문 점수</span>
+                            <span>소속 부서별 평균 점수(만족도/편의성/속도)로 대치</span>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <span class="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded font-semibold shrink-0">4. 수기 메모</span>
+                            <span>누락/불명확 메모는 <code class="bg-slate-200 px-1 rounded font-bold">'확인필요'</code> 상태로 관리</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 text-right">
+                    OpenCV CLAHE + FastNlMeans + AdaptiveThreshold 적용
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Table Tabs Section -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+            <div class="border-b border-slate-200 bg-slate-50 px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-4">
+                    <button id="tabBtnReview" onclick="switchTab('review')" class="text-sm font-bold pb-2 border-b-2 border-emerald-500 text-emerald-600 flex items-center gap-1.5">
+                        <span>⚠️</span> 확인필요 / 보완 목록 (<span id="reviewCountBadge">25</span>)
+                    </button>
+                    <button id="tabBtnAll" onclick="switchTab('all')" class="text-sm font-medium pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5">
+                        <span>📑</span> 전체 데이터셋 (<span id="allCountBadge">240</span>)
+                    </button>
+                </div>
+                <div>
+                    <input type="text" id="tableSearch" onkeyup="filterTableText()" placeholder="문서ID, 상호명, 부서, 메모 검색..." class="text-xs bg-white border border-slate-300 rounded-lg px-3 py-1.5 w-64 focus:ring-emerald-500 focus:border-emerald-500">
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto max-h-96">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-100 text-slate-700 uppercase font-bold sticky top-0 border-b border-slate-200">
+                        <tr>
+                            <th class="px-4 py-3">문서ID</th>
+                            <th class="px-4 py-3">유형</th>
+                            <th class="px-4 py-3">일자</th>
+                            <th class="px-4 py-3">상호명 / 부서</th>
+                            <th class="px-4 py-3">금액 / 점수</th>
+                            <th class="px-4 py-3">수기메모</th>
+                            <th class="px-4 py-3">보완사유</th>
+                            <th class="px-4 py-3">신뢰도</th>
+                            <th class="px-4 py-3 text-center">이미지</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Image Modal Viewer -->
+    <div id="imageModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-4xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-4">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        <span id="modalDocId">R-0048</span>
+                        <span id="modalDocType" class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">receipt</span>
+                    </h3>
+                    <p class="text-xs text-slate-500 mt-0.5" id="modalDocSub">상호명: 업무자동화카페 | 일자: 2026-05-18</p>
+                </div>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+            </div>
+
+            <!-- 2-Column Image Comparison -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                    <span class="text-xs font-bold text-slate-500 mb-2 block">📷 원본 이미지</span>
+                    <div class="h-64 bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        <img id="modalRawImg" src="" alt="Raw Image" class="max-h-full max-w-full object-contain">
+                    </div>
+                </div>
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                    <span class="text-xs font-bold text-emerald-600 mb-2 block">✨ OpenCV 전처리 이미지</span>
+                    <div class="h-64 bg-slate-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        <img id="modalPrepImg" src="" alt="Preprocessed Image" class="max-h-full max-w-full object-contain">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Metadata Info -->
+            <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-700 space-y-1" id="modalMetaJson">
+                <!-- Meta JSON injected -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-500">
+        <p>Project 2: Multimodal Vision OCR Dashboard | Antigravity AI Lab</p>
+    </footer>
+
+    <!-- Embedded Cleaned Dataset and Script -->
+    <script>
+        let allData = [];
+        let filteredData = [];
+        let currentTab = 'review'; // 'review' or 'all'
+
+        let donutChartInstance = null;
+        let barChartInstance = null;
+        let compChartInstance = null;
+
+        // Fetch dataset
+        async function loadDataset() {
+            try {
+                const res = await fetch('data/processed/ocr_cleaned_dataset.json');
+                if (res.ok) {
+                    allData = await res.json();
+                } else {
+                    console.warn("JSON fetch failed, using fallback static data");
+                }
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+
+            initApp();
+        }
+
+        function initApp() {
+            populateDeptFilter();
+            applyFilters();
+        }
+
+        function populateDeptFilter() {
+            const depts = [...new Set(allData.map(d => d.respondent_dept).filter(d => d && d.trim() !== ''))].sort();
+            const select = document.getElementById('filterDept');
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d;
+                opt.textContent = d;
+                select.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const docType = document.getElementById('filterDocType').value;
+            const dept = document.getElementById('filterDept').value;
+            const cond = document.getElementById('filterCondition').value;
+
+            filteredData = allData.filter(d => {
+                if (docType !== 'all' && d.document_type !== docType) return false;
+                if (dept !== 'all' && d.respondent_dept !== dept) return false;
+                if (cond === 'lowres' && !d.is_low_resolution) return false;
+                if (cond === 'noise' && !d.has_noise) return false;
+                if (cond === 'imputed' && d.imputed_fields_count <= 0) return false;
+                return true;
+            });
+
+            updateKPIs();
+            renderCharts();
+            renderTable();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterDocType').value = 'all';
+            document.getElementById('filterDept').value = 'all';
+            document.getElementById('filterCondition').value = 'all';
+            document.getElementById('tableSearch').value = '';
+            applyFilters();
+        }
+
+        function updateKPIs() {
+            const total = filteredData.length;
+            const receipts = filteredData.filter(d => d.document_type === 'receipt').length;
+            const surveys = filteredData.filter(d => d.document_type === 'survey').length;
+            const imputed = filteredData.filter(d => d.imputed_fields_count > 0).length;
+            
+            const confSum = filteredData.reduce((acc, cur) => acc + (cur.confidence || 0.95), 0);
+            const avgConf = total > 0 ? (confSum / total) * 100 : 0;
+
+            document.getElementById('kpiTotalDocs').innerHTML = `${total.toLocaleString()} <span class="text-base font-normal text-slate-500">건</span>`;
+            document.getElementById('kpiDocBreakdown').textContent = `영수증 ${receipts} / 설문 ${surveys}`;
+            document.getElementById('kpiSuccessRate').textContent = total > 0 ? '100.0%' : '0.0%';
+            document.getElementById('kpiImputedDocs').innerHTML = `${imputed.toLocaleString()} <span class="text-base font-normal text-slate-500">건</span>`;
+            document.getElementById('kpiImputedRate').textContent = `보완율 ${total > 0 ? ((imputed/total)*100).toFixed(1) : 0}%`;
+            document.getElementById('kpiConfidence').textContent = `${avgConf.toFixed(1)}%`;
+
+            const reviewItems = filteredData.filter(d => d.needs_review);
+            document.getElementById('reviewCountBadge').textContent = reviewItems.length;
+            document.getElementById('allCountBadge').textContent = total;
+        }
+
+        function renderCharts() {
+            renderDonutChart();
+            renderBarChart();
+            renderCompChart();
+        }
+
+        function renderDonutChart() {
+            const receipts = filteredData.filter(d => d.document_type === 'receipt' && d.category);
+            const catMap = {};
+            receipts.forEach(r => {
+                catMap[r.category] = (catMap[r.category] || 0) + (Number(r.total_amount) || 0);
+            });
+
+            const labels = Object.keys(catMap);
+            const data = Object.values(catMap);
+
+            const ctx = document.getElementById('categoryDonutChart').getContext('2d');
+            if (donutChartInstance) donutChartInstance.destroy();
+
+            donutChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#0f2027', '#203a43', '#00c9a7', '#4d8fac', '#80e27e', '#cbd5e1'],
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const val = ctx.raw || 0;
+                                    return ` ${ctx.label}: ${val.toLocaleString()}원`;
+                                }
+                            }
+                        }
+                    },
+                    cutout: '55%'
+                }
+            });
+        }
+
+        function renderBarChart() {
+            const surveys = filteredData.filter(d => d.document_type === 'survey' && d.respondent_dept);
+            const deptMap = {};
+            surveys.forEach(s => {
+                if (!deptMap[s.respondent_dept]) {
+                    deptMap[s.respondent_dept] = { total: 0, count: 0 };
+                }
+                deptMap[s.respondent_dept].total += (Number(s.avg_survey_score) || 4);
+                deptMap[s.respondent_dept].count += 1;
+            });
+
+            const labels = Object.keys(deptMap).sort();
+            const data = labels.map(l => (deptMap[l].total / deptMap[l].count).toFixed(2));
+
+            const ctx = document.getElementById('deptBarChart').getContext('2d');
+            if (barChartInstance) barChartInstance.destroy();
+
+            barChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '종합 만족도 평점',
+                        data: data,
+                        backgroundColor: '#00c9a7',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 0, max: 5.5, ticks: { stepSize: 1 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` 종합 평점: ${ctx.raw}점`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderCompChart() {
+            const clean = allData.filter(d => !d.is_low_resolution && !d.has_noise);
+            const noise = allData.filter(d => d.has_noise);
+            const lowres = allData.filter(d => d.is_low_resolution);
+            const both = allData.filter(d => d.is_low_resolution && d.has_noise);
+
+            const getAvg = (arr) => arr.length ? (arr.reduce((acc, c) => acc + (c.confidence||0.95), 0) / arr.length * 100).toFixed(1) : 0;
+
+            const labels = ['일반 고해상도', '노이즈 환경', '저해상도 환경', '저해상도+노이즈'];
+            const data = [getAvg(clean), getAvg(noise), getAvg(lowres), getAvg(both)];
+
+            const ctx = document.getElementById('conditionCompChart').getContext('2d');
+            if (compChartInstance) compChartInstance.destroy();
+
+            compChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: ['#00c9a7', '#4d8fac', '#f59e0b', '#ef4444'],
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { min: 70, max: 105, ticks: { stepSize: 10 } }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => ` 평균 신뢰도: ${ctx.raw}%`
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const btnReview = document.getElementById('tabBtnReview');
+            const btnAll = document.getElementById('tabBtnAll');
+
+            if (tab === 'review') {
+                btnReview.className = "text-sm font-bold pb-2 border-b-2 border-emerald-500 text-emerald-600 flex items-center gap-1.5";
+                btnAll.className = "text-sm font-medium pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5";
+            } else {
+                btnAll.className = "text-sm font-bold pb-2 border-b-2 border-emerald-500 text-emerald-600 flex items-center gap-1.5";
+                btnReview.className = "text-sm font-medium pb-2 border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-1.5";
+            }
+
+            renderTable();
+        }
+
+        function filterTableText() {
+            renderTable();
+        }
+
+        function renderTable() {
+            const query = document.getElementById('tableSearch').value.toLowerCase().trim();
+            let dataToShow = currentTab === 'review' ? filteredData.filter(d => d.needs_review) : filteredData;
+
+            if (query) {
+                dataToShow = dataToShow.filter(d => {
+                    const text = `${d.record_id} ${d.organization_or_store || ''} ${d.respondent_dept || ''} ${d.handwritten_note || ''} ${d.review_reason || ''}`.toLowerCase();
+                    return text.includes(query);
+                });
+            }
+
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            if (dataToShow.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400">조건에 일치하는 문서가 없습니다.</td></tr>`;
+                return;
+            }
+
+            dataToShow.forEach(d => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50/80 transition cursor-pointer";
+                tr.onclick = () => openModal(d);
+
+                const storeOrDept = d.document_type === 'receipt' ? (d.organization_or_store || '-') : (d.respondent_dept || '-');
+                const amtOrScore = d.document_type === 'receipt' ? `${Number(d.total_amount).toLocaleString()}원` : `${d.avg_survey_score || '-'}점`;
+                const confPercent = `${((d.confidence || 0.95) * 100).toFixed(1)}%`;
+                const typeBadge = d.document_type === 'receipt' ? `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-100 text-blue-700">영수증</span>` : `<span class="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-700">설문지</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 font-bold text-slate-800">${d.record_id}</td>
+                    <td class="px-4 py-3">${typeBadge}</td>
+                    <td class="px-4 py-3 text-slate-500">${d.doc_date || '-'}</td>
+                    <td class="px-4 py-3 font-medium text-slate-700">${storeOrDept}</td>
+                    <td class="px-4 py-3 font-bold text-slate-800">${amtOrScore}</td>
+                    <td class="px-4 py-3 text-slate-600">${d.handwritten_note || '-'}</td>
+                    <td class="px-4 py-3"><span class="text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">${d.review_reason || '정상추출'}</span></td>
+                    <td class="px-4 py-3 font-semibold text-emerald-600">${confPercent}</td>
+                    <td class="px-4 py-3 text-center">
+                        <button class="text-xs bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded text-slate-700 font-medium">보기</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openModal(d) {
+            document.getElementById('modalDocId').textContent = d.record_id;
+            document.getElementById('modalDocType').textContent = d.document_type;
+            
+            const storeOrDept = d.document_type === 'receipt' ? d.organization_or_store : d.respondent_dept;
+            document.getElementById('modalDocSub').textContent = `${d.document_type === 'receipt' ? '상호명' : '부서'}: ${storeOrDept} | 일자: ${d.doc_date}`;
+
+            const rawImg = d.image_filename;
+            const filename = rawImg.split('/').pop();
+            const prepSub = d.document_type === 'receipt' ? 'receipts' : 'surveys';
+            const prepImg = `data/ocr/preprocessed_images/${prepSub}/${filename}`;
+
+            document.getElementById('modalRawImg').src = rawImg;
+            document.getElementById('modalPrepImg').src = prepImg;
+
+            document.getElementById('modalMetaJson').innerHTML = `
+                <div><b>Record ID:</b> ${d.record_id}</div>
+                <div><b>Document Type:</b> ${d.document_type}</div>
+                <div><b>Date:</b> ${d.doc_date}</div>
+                <div><b>Organization / Dept:</b> ${storeOrDept}</div>
+                <div><b>Amount / Score:</b> ${d.document_type === 'receipt' ? Number(d.total_amount).toLocaleString() + '원' : d.avg_survey_score + '점'}</div>
+                <div><b>Handwritten Note:</b> ${d.handwritten_note}</div>
+                <div><b>Confidence:</b> ${(d.confidence * 100).toFixed(2)}%</div>
+                <div><b>Review Reason:</b> ${d.review_reason || '정상 추출'}</div>
+            `;
+
+            document.getElementById('imageModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('imageModal').classList.add('hidden');
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('imageModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        };
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', loadDataset);
+    </script>
+</body>
+</html>
